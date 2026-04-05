@@ -1,0 +1,28 @@
+# Credentials - never push this
+.env
+
+# Raw data - proprietary plant data, never push
+data/raw/
+data/external/
+data/processed/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# VS Code settings
+.vscode/
+
+# Mac junk
+.DS_Store
+
+# Conda/environment
+*.egg-info/
+
+# Database session file
+*.session.sql
