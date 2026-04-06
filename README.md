@@ -19,7 +19,7 @@ The goal of this project is to show how manufacturing data can be turned into us
 
 ```
 Pharma_Manufacturing_Data_Analysis_Project/
-├── Python_ETL_SCRIPT/          # Data pipeline — Extract, Transform, Load
+├── PYTHON_ETL_PIPELINE/        # Data pipeline — Extract, Transform, Load
 ├── SQL_STAR_SCHEMA_DATABASE/   # PostgreSQL star schema design
 ├── EDA_PORTFOLIO/              # Exploratory data analysis notebooks (in progress)
 └── DASHBOARD/                  # Power BI management dashboard (in progress)
