@@ -32,7 +32,8 @@
 -- ============================================================
 
 CREATE TYPE stage_name AS ENUM (
-    'compounding',
+    'wet_granulation',
+    'dry_blending',
     'compression',
     'coating',
     'encapsulation'
