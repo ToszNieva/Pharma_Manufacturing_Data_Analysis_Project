@@ -1,0 +1,32 @@
+name: datastack
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # Core Python
+  - python=3.11
+
+  # Data Analysis / EDA
+  - pandas
+  - numpy
+  - matplotlib
+  - seaborn
+  - plotly
+  - jupyterlab
+  - ipykernel
+
+  # Data Engineering / DB
+  - sqlalchemy
+  - psycopg2
+  - python-dotenv
+
+  # Machine Learning
+  - scikit-learn
+  - xgboost
+
+  # Dev tools
+  - black
+  - pip
+
+  - pip:
+    - dash  # only on pip; not on conda-forge

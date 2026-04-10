@@ -496,116 +496,79 @@ def load_fact_batch_production(df, conn):
         conn,
     )
 
-    # --- Melt yield columns ---
-    yield_map = {
-        "% Yield_Cmpdg": "compounding",
-        "% Yield_Cmprsn": "compression",
-        "% Yield_Ctng": "coating",
-        "% Yield_Encap": "encapsulation",
-    }
-
-    yields_melted = pd.melt(
-        df,
-        id_vars=["JO Number"],
-        value_vars=list(yield_map.keys()),
-        var_name="stage_col",
-        value_name="yield_pct",
-    )
-    yields_melted["stage"] = yields_melted["stage_col"].map(yield_map)
-    yields_melted = yields_melted.drop(columns=["stage_col"])
-
-    # --- Melt actual output columns ---
-    output_map = {
-        "Compression Actual Yield": "compression",
-        "Encapsulation Actual Yield": "encapsulation",
-        "Coating Actual Yield": "coating",
-    }
-
-    output_melted = pd.melt(
-        df,
-        id_vars=["JO Number"],
-        value_vars=list(output_map.keys()),
-        var_name="stage_col",
-        value_name="actual_output_units",
-    )
-    output_melted["stage"] = output_melted["stage_col"].map(output_map)
-    output_melted = output_melted.drop(columns=["stage_col"])
-
-    # --- Melt date columns ---
-    date_map = {
-        "Compounding Date": "compounding",
-        "Compression Date": "compression",
-        "Encapsulation Date": "encapsulation",
-        "Coating Date": "coating",
-    }
-
-    dates_melted = pd.melt(
-        df,
-        id_vars=["JO Number"],
-        value_vars=list(date_map.keys()),
-        var_name="stage_col",
-        value_name="full_date",
-    )
-    dates_melted["stage"] = dates_melted["stage_col"].map(date_map)
-    dates_melted["date_id"] = (
-        pd.to_datetime(dates_melted["full_date"], errors="coerce")
-        .dt.strftime("%Y%m%d")
-    )
-    dates_melted["date_id"] = pd.to_numeric(dates_melted["date_id"], errors="coerce").astype("Int64")
-    dates_melted = dates_melted.drop(columns=["stage_col", "full_date"])
-
-    # --- Melt machine columns (compression, encapsulation, coating) ---
-    machine_map = {
-        "Compression Machine Used": "compression",
-        "Encapsulation Machine Used": "encapsulation",
-        "Coating Machine Used": "coating",
-    }
-
-    machines_melted = pd.melt(
-        df,
-        id_vars=["JO Number"],
-        value_vars=list(machine_map.keys()),
-        var_name="stage_col",
-        value_name="machine_name",
-    )
-    machines_melted["stage"] = machines_melted["stage_col"].map(machine_map)
-    machines_melted = machines_melted.drop(columns=["stage_col"])
-
-    # --- Compounding machines (granulator + blender tracked separately) ---
-    compounding_machines = df[["JO Number", "Compounding Wet", "Compounding Final Mixing"]].copy()
-    compounding_machines["stage"] = "compounding"
-    compounding_machines = compounding_machines.rename(columns={
+    # --- Build wet_granulation rows ---
+    wet_gran = df[["JO Number", "Compounding Wet", "Compounding Date", "Batch Size"]].copy()
+    wet_gran["stage"] = "wet_granulation"
+    wet_gran["yield_pct"] = None        # no separate yield recorded for this sub-stage
+    wet_gran["actual_output_units"] = None
+    wet_gran = wet_gran.rename(columns={
         "Compounding Wet": "machine_name",
-        "Compounding Final Mixing": "blending_machine_name",
+        "Compounding Date": "stage_date",
     })
 
-    # --- Join all melted data ---
-    fact = yields_melted.copy()
-    fact = fact.merge(output_melted, on=["JO Number", "stage"], how="left")
-    fact = fact.merge(dates_melted, on=["JO Number", "stage"], how="left")
-    fact = fact.merge(machines_melted, on=["JO Number", "stage"], how="left")
-    fact = fact.merge(
-        compounding_machines[["JO Number", "stage", "machine_name", "blending_machine_name"]],
-        on=["JO Number", "stage"],
-        how="left",
-        suffixes=("", "_compounding"),
+    # --- Build dry_blending rows ---
+    dry_blend = df[["JO Number", "Compounding Final Mixing", "Compounding Date", "Batch Size", "% Yield_Cmpdg"]].copy()
+    dry_blend["stage"] = "dry_blending"
+    dry_blend = dry_blend.rename(columns={
+        "Compounding Final Mixing": "machine_name",
+        "Compounding Date": "stage_date",
+        "% Yield_Cmpdg": "yield_pct",
+    })
+    dry_blend["actual_output_units"] = None  # no separate actual output column for compounding
+
+    # --- Build compression rows ---
+    compression = df[["JO Number", "Compression Machine Used", "Compression Date",
+                       "Batch Size", "% Yield_Cmprsn", "Compression Actual Yield"]].copy()
+    compression["stage"] = "compression"
+    compression = compression.rename(columns={
+        "Compression Machine Used": "machine_name",
+        "Compression Date": "stage_date",
+        "% Yield_Cmprsn": "yield_pct",
+        "Compression Actual Yield": "actual_output_units",
+    })
+
+    # --- Build encapsulation rows ---
+    encapsulation = df[["JO Number", "Encapsulation Machine Used", "Encapsulation Date",
+                         "Batch Size", "% Yield_Encap", "Encapsulation Actual Yield"]].copy()
+    encapsulation["stage"] = "encapsulation"
+    encapsulation = encapsulation.rename(columns={
+        "Encapsulation Machine Used": "machine_name",
+        "Encapsulation Date": "stage_date",
+        "% Yield_Encap": "yield_pct",
+        "Encapsulation Actual Yield": "actual_output_units",
+    })
+
+    # --- Build coating rows ---
+    coating = df[["JO Number", "Coating Machine Used", "Coating Date",
+                  "Batch Size", "% Yield_Ctng", "Coating Actual Yield"]].copy()
+    coating["stage"] = "coating"
+    coating = coating.rename(columns={
+        "Coating Machine Used": "machine_name",
+        "Coating Date": "stage_date",
+        "% Yield_Ctng": "yield_pct",
+        "Coating Actual Yield": "actual_output_units",
+    })
+
+    # --- Stack all stages into one tall DataFrame ---
+    fact = pd.concat(
+        [wet_gran, dry_blend, compression, encapsulation, coating],
+        ignore_index=True
     )
 
-    # Consolidate machine name columns
-    fact["machine_name"] = fact["machine_name"].fillna(fact["machine_name_compounding"])
-    fact = fact.drop(columns=["machine_name_compounding"])
+    # --- Resolve date_id ---
+    fact["date_id"] = (
+        pd.to_datetime(fact["stage_date"], errors="coerce")
+        .dt.strftime("%Y%m%d")
+    )
+    fact["date_id"] = pd.to_numeric(fact["date_id"], errors="coerce").astype("Int64")
+    fact = fact.drop(columns=["stage_date"])
 
     # --- Resolve foreign keys ---
     fact = fact.merge(dim_jo_db, left_on="JO Number", right_on="jo_number", how="left")
 
-    fact = fact.merge(dim_machine_db, on="machine_name", how="left")
-
     fact = fact.merge(
-        dim_machine_db.rename(columns={
-            "machine_id": "blending_machine_id",
-            "machine_name": "blending_machine_name",
-        }),
-        on="blending_machine_name",
+        dim_machine_db[["machine_name", "machine_id"]],
+        on="machine_name",
         how="left",
     )
 
@@ -614,7 +577,6 @@ def load_fact_batch_production(df, conn):
         "jo_id",
         "product_id",
         "machine_id",
-        "blending_machine_id",
         "date_id",
         "stage",
         "actual_output_units",
@@ -623,7 +585,7 @@ def load_fact_batch_production(df, conn):
     ]].copy()
 
     # --- Fix data types ---
-    int_cols = ["machine_id", "blending_machine_id", "date_id", "batch_size", "actual_output_units"]
+    int_cols = ["machine_id", "date_id", "batch_size", "actual_output_units"]
     for col in int_cols:
         fact_final[col] = pd.to_numeric(fact_final[col], errors="coerce").round(0).astype("Int64")
 
@@ -632,25 +594,23 @@ def load_fact_batch_production(df, conn):
     # --- Upsert into fact table ---
     upsert_sql = text("""
         INSERT INTO fact_batch_production (
-            jo_id, product_id, machine_id, blending_machine_id,
+            jo_id, product_id, machine_id,
             date_id, stage, actual_output_units, yield_pct, batch_size
         )
         VALUES (
-            :jo_id, :product_id, :machine_id, :blending_machine_id,
+            :jo_id, :product_id, :machine_id,
             :date_id, :stage, :actual_output_units, :yield_pct, :batch_size
         )
         ON CONFLICT (jo_id, stage)
         DO UPDATE SET
             product_id          = EXCLUDED.product_id,
             machine_id          = EXCLUDED.machine_id,
-            blending_machine_id = EXCLUDED.blending_machine_id,
             date_id             = EXCLUDED.date_id,
             actual_output_units = EXCLUDED.actual_output_units,
             yield_pct           = EXCLUDED.yield_pct,
             batch_size          = EXCLUDED.batch_size
     """)
 
-    # Convert Int64 (nullable) to Python-native types for SQLAlchemy
     records = fact_final.where(pd.notna(fact_final), other=None).to_dict(orient="records")
     conn.execute(upsert_sql, records)
     print(f"fact_batch_production upserted: {len(fact_final)} rows processed")
