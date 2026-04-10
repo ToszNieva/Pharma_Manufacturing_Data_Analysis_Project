@@ -25,4 +25,4 @@ __pycache__/
 *.egg-info/
 
 # Database session file
-*.session.sql
+*.session.sqlDASHBOARDS/
