@@ -2,6 +2,80 @@
 
 This document consolidates all exploratory data analysis performed across 7 modules covering production volume, product performance, machine utilization, lead time, yield, material loss, and market demand. Each section presents the analytical question, the visualization, and a full breakdown of observations, insights, and recommendations.
 
+## Background
+
+This project was built as part of a career transition from pharmaceutical manufacturing (Senior Process Lead) into data analytics. The domain knowledge behind the analytical decisions — yield targets, GMP data handling, stage-level process flow — comes directly from working in a regulated solid dosage manufacturing environment.
+
+The analysis is meant to answer questions that matter to plant operations: where are we losing yield, which machines are carrying the most load, and how does production volume shift across the year.
+
+An end-to-end data analytics project built on real batch manufacturing data from a solid dosage form pharmaceutical facility. This covers the full pipeline — from raw Excel records to a structured PostgreSQL database and a 7-module exploratory data analysis portfolio.
+
+The goal of this project is to show how manufacturing data can be turned into useful insights for production planning, yield monitoring, and machine performance tracking.
+
+> **Note on data privacy:** Product names and job order numbers have been anonymized. Generic drug names (INN) are used throughout in place of proprietary brand names. Raw source data is excluded from this repository.
+
+---
+
+## What's in this repo
+
+```
+Pharma_Manufacturing_Data_Analysis_Project/
+├── PYTHON_ETL_PIPELINE/        # Data pipeline — Extract, Transform, Load
+├── SQL_STAR_SCHEMA_DATABASE/   # PostgreSQL star schema design
+├── EDA_ANALYSIS/               # 7-module exploratory data analysis notebooks
+└── README.md
+```
+
+---
+
+## Project Breakdown
+
+### Python ETL Pipeline
+A Python pipeline that reads raw Excel batch records, cleans and transforms the data, and loads it into a PostgreSQL star schema. Handles real-world data quality issues like inconsistent casing, messy yield values, missing remarks, and semantic duplicates in drug names.
+
+**Key features:** upsert-safe loaders, three-tier yield imputation, GMP-aligned data flagging, atomic transactions, idempotent pipeline design.
+
+See the [ETL README](./PYTHON_ETL_PIPELINE/readme.md) for full details.
+
+---
+
+### SQL Star Schema Database
+A PostgreSQL star schema designed for stage-level manufacturing analysis. One row per stage per batch in the fact table — this makes yield and machine queries much cleaner compared to the original flat Excel structure.
+
+**Tables:** `fact_batch_production`, `dim_product`, `dim_machine`, `dim_date`, `dim_job_order`, `dim_stage_target`
+
+See the [Schema README](./SQL_STAR_SCHEMA_DATABASE/readme.md) for full details.
+
+---
+
+### EDA Analysis ✅
+Seven-module exploratory data analysis built entirely in Python (pandas + Plotly) with SQL queries against the PostgreSQL star schema. Every analytical finding is structured as Observation → Insight → Recommendation, written at plant manager / operations head level.
+
+| Module | Topic | Status |
+|---|---|---|
+| 1 | Production Volume Analysis | ✅ Complete |
+| 2 | Product Analysis | ✅ Complete |
+| 3 | Machine Utilization Analysis | ✅ Complete |
+| 4 | Lead Time Analysis | ✅ Complete |
+| 5 | Yield Analysis | ✅ Complete |
+| 6 | Loss Analysis | ✅ Complete |
+| 7 | Market Demand Inference | ✅ Complete |
+
+See the [EDA README](./EDA_ANALYSIS/README.md) for full analysis details, key findings, and stakeholder recommendations.
+
+---
+
+## Dataset Overview
+
+| Item | Detail |
+|---|---|
+| Source | Flat Excel batch manufacturing records |
+| Records | 1,064 batches |
+| Dosage forms | 8 types (film-coated tablet, capsule, SR tablet, tablet, bilayer tablet, extended release, enteric-coated, modified release) |
+| Stages tracked | Wet Granulation, Dry Blending, Compression, Encapsulation, Coating |
+| Date range | 2025 |
+| Fact table rows | 5,320 (one row per stage per batch) |
+
 ---
 
 ## Table of Contents
